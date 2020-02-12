@@ -1,6 +1,6 @@
 ---
 title: "Project Forecasting"
-author: "Henry MinÃ¶r"
+author: "Henry Minör"
 date: "9 2 2020"
 output: html_document
 ---
@@ -20,11 +20,10 @@ library(sandwich) ## used to compute NW SE's
 library(lmtest)
 library(tidyverse)
 
-# function to retrieve path for source file
 getCurrentFileLocation <-  function() {
   this_file <- commandArgs() %>% 
     tibble::enframe(name = NULL) %>%
-    tidyr::separate(col=value, into=c(" key", "value"), sep="=", fill='right') %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
     dplyr::filter(key == "--file") %>%
     dplyr::pull(value)
   if (length(this_file)==0) {
@@ -32,7 +31,7 @@ getCurrentFileLocation <-  function() {
   }
   return(dirname(this_file))
 }
-# set working directory to current file location
+
 file_dir <- getCurrentFileLocation()
 setwd(file_dir)
 
@@ -40,18 +39,14 @@ setwd(file_dir)
 source("../lib/utilities.R")
 ```
 
-
-
-
-Transform the data
+Read the in ../lib/TS_Constructor.Rmd constructed data
 ```{r}
-chgch <- diff( log( CHIEPUINDXM ) )*100
-chgus <- diff(log(USEPUINDXD))*100
-logus<- log(USEPUINDXD)
-logch<- log(CHIEPUINDXM)
+D.US.orig <- read.table('../data/USEPUINDXD.csv', header=TRUE,sep=',')
+D.CH.orig <- read.table('../data/CHIEPUINDXM.csv', header=TRUE,sep=',')
 
+D.US <- read.table('../data/delta_epu_us.csv', header=TRUE)
+D.CH <- read.table('../data/delta_epu_ch.csv', header=TRUE)
 ```
-Notice that the chinese data is non-stationary!! US data is stationary
 
 
 Plot the data:

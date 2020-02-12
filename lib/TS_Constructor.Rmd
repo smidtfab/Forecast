@@ -79,8 +79,8 @@ dev.off()
 
  Pack dates and delta.epu.us in a data frame and write it to disk
 ```{r}
-data.us <- cbind.data.frame(datesus[2:T],delta.epu.us, log.epu.us)
-write.table(data.us, '../data/delta_epu_us.csv',sep=' ', row.names=FALSE,col.names=FALSE)
+data.us <- cbind.data.frame(date = datesus[2:T], delta_epu = delta.epu.us, log_epu = log.epu.us)
+write.table(data.us, '../data/delta_epu_us.csv',sep=' ', row.names=FALSE, col.names=TRUE)
 ```
 
  Construct the delta.epu.ch and log.epu.ch series for us, plot it and produce a pdf
@@ -111,6 +111,6 @@ dev.off()
 
  Pack dates and delta.epu.ch in a data frame and write it to disk
 ```{r}
-data.ch <- cbind.data.frame(datesch[2:T], delta.epu.ch, log.epu.ch)
-write.table(data.ch, '../data/delta_epu_ch.csv', sep=' ', row.names=FALSE,col.names=FALSE)
+data.ch <- cbind.data.frame(date = datesch[2:T], delta_epu = delta.epu.ch, log_epu = log.epu.ch)
+write.table(data.ch, '../data/delta_epu_ch.csv', sep=' ', row.names=FALSE,col.names=TRUE)
 ```
