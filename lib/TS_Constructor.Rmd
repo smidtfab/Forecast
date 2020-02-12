@@ -1,0 +1,92 @@
+---
+title: "Project Forecasting"
+author: "Fabian Schmidt"
+date: "12/01/2020"
+output: html_document
+---
+```{r}
+rm( list=ls() )
+
+library(tidyverse)
+
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+source('./utilities.R')
+```
+
+Read the data
+```{r}
+china <- read.csv("../data/CHIEPUINDXM.csv")
+us <- read.csv("../data/USEPUINDXD.csv")
+```
+
+Construct returns dates
+```{r}
+datesus <- as.Date(us$DATE)
+datesch <- as.Date(china$DATE)
+```
+
+ Get the adjusted epu.us series and plot it
+```{r}
+epu.us <- us$USEPUINDXD;
+myplot( datesus , epu.us)
+```
+
+ Get the adjusted epu.china series and plot it
+```{r}
+epu.ch <- china$CHIEPUINDXM;
+myplot( datesch , epu.ch)
+```
+
+ Construct the delta.epu.us series for us, plot it and produce a pdf
+```{r}
+delta.epu.us <- diff( log( epu.us ) ) * 100
+
+T <- length(datesus)
+myplot( datesus[2:T] , delta.epu.us , col='red2' )
+abline(h=0 , lwd=2)
+
+pdf(file='../images/epu_us.pdf',width=7,height=5)
+myplot( datesus[2:T], delta.epu.us, col='red2' )
+abline(h=0 , lwd=2)
+dev.off() 
+```
+
+ Pack dates and delta.epu.us in a data frame and write it to disk
+```{r}
+data.us <- cbind.data.frame(datesus[2:T],delta.epu.us)
+write.table(data.us, '../data/delta_epu_us.csv',sep=' ', row.names=FALSE,col.names=FALSE)
+```
+
+ Construct the delta.epu.ch series for us, plot it and produce a pdf
+```{r}
+delta.epu.ch <- diff( log( epu.ch ) ) * 100
+
+T <- length(datesch)
+myplot( datesch[2:T] , delta.epu.ch , col='red2' )
+abline(h=0 , lwd=2)
+
+pdf(file='../images/epu_ch.pdf',width=7,height=5)
+myplot( datesch[2:T], delta.epu.ch, col='red2' )
+abline(h=0 , lwd=2)
+dev.off() 
+```
+
+ Pack dates and delta.epu.ch in a data frame and write it to disk
+```{r}
+data.ch <- cbind.data.frame(datesch[2:T],delta.epu.ch)
+write.table(data.ch, '../data/delta_epu_ch.csv',sep=' ', row.names=FALSE,col.names=FALSE)
+```
