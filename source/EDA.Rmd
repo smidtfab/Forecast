@@ -1,6 +1,6 @@
 ---
 title: "Project Forecasting"
-author: "Henry Minör"
+author: "Henry Min?r"
 date: "9 2 2020"
 output: html_document
 ---
@@ -77,7 +77,6 @@ abline(h=mean(chgch) , lwd=2)
 
 
 ### QQ Norms
-par(mfrow=c(3,2))
 qqnorm(USEPUINDXD,col='tomato',main='US')
 qqline(USEPUINDXD,lwd=2,lty=3)
 
