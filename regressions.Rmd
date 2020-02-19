@@ -1,0 +1,124 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r}
+library(readr)
+library("stringr")
+library(dplyr)
+library(plyr)
+library("tibble")
+library("reshape2")
+library(tseries)
+library(moments)
+library(lubridate)
+library("sandwich")
+library(lmtest)
+```
+
+```{r setup, include=FALSE}
+rate = read_csv("FEDFUNDS.csv") 
+uncert = read_csv("USEPUINDXM.csv") 
+cpi = read_csv("CPALTT01USM659N.csv") 
+unempol = read_csv("UNRATE.csv")
+indpro = read_csv("INDPRO.csv")
+election = read_delim("diff_election_date.csv", delim = ";")
+```
+
+```{r}
+election$DATE = as.Date(election$DATE, '%m-%d-%Y')
+```
+
+
+```{r}
+uncertainty = inner_join(uncert, rate)
+uncertainty = inner_join(uncertainty, cpi)
+uncertainty = inner_join(uncertainty, unempol)
+uncertainty = inner_join(uncertainty, indpro)
+uncertainty = inner_join(uncertainty, election)
+```
+
+
+
+```{r}
+rate_diff = diff( uncertainty$FEDFUNDS )
+uncertainty_growth = diff( log( uncertainty$USEPUINDXM ) )*100
+INDPRO_growth =diff( log( uncertainty$INDPRO ) )*100
+unemployment_growth=diff( log( uncertainty$UNRATE ) )*100
+cpi_diff=diff( uncertainty$CPALTT01USM659N )
+cpi_growth=diff( log( uncertainty$CPALTT01USM659N ) )*100
+uncertainty = uncertainty[-1,]
+uncertainty$unemployment_growth = unemployment_growth
+uncertainty$cpi_growth = cpi_growth
+uncertainty$rate_diff = rate_diff
+uncertainty$INDPRO_growth=INDPRO_growth
+uncertainty$cpi_diff=cpi_diff
+uncertainty$uncertainty_growth=uncertainty_growth
+```
+
+
+```{r}
+write.csv(uncertainty, file = "uncertainty_full.csv")
+```
+
+```{r}
+ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n=2L)  + lag(uncertainty_growth, n=3L) + lag(uncertainty_growth, n=4L) + lag(uncertainty_growth, n=5L)  + lag(uncertainty_growth, n=6L) + lag(uncertainty_growth, n=7L) + lag(rate_diff) + lag(uncertainty$cpi_diff)  + lag(uncertainty$unemployment_growth) + lag(uncertainty$INDPRO_growth) + lag(uncertainty$DIFF), data=uncertainty )
+
+vc.nwX <- NeweyWest(ARX.reg)
+
+coeftest(ARX.reg)
+coeftest(ARX.reg,vc.nwX)
+```
+
+```{r}
+summary(ARX.reg)
+```
+
+```{r}
+ret.acf <- acf(uncertainty$uncertainty_growth , ylim=c(-0.1,1) , lwd=5 , xlim=c(0,25) , col='darkorange2')
+print(ret.acf)
+```
+
+```{r}
+ret.pacf <- pacf(uncertainty$uncertainty_growth, ylim=c(-1,1) , lwd=5 , xlim=c(0,25) , col='darkorange2')
+print(ret.pacf)
+```
+
+```{r}
+ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(rate_diff) + lag(uncertainty$cpi_diff)  + lag(uncertainty$unemployment_growth) + lag(uncertainty$INDPRO_growth) + lag(uncertainty$DIFF), data=uncertainty )
+
+vc.nwX <- NeweyWest(ARX.reg)
+
+coeftest(ARX.reg)
+coeftest(ARX.reg,vc.nwX)
+```
+
+
+```{r}
+ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty$cpi_diff)  + lag(uncertainty$unemployment_growth) + lag(uncertainty$INDPRO_growth) + lag(uncertainty$DIFF), data=uncertainty )
+
+vc.nwX <- NeweyWest(ARX.reg)
+
+coeftest(ARX.reg)
+coeftest(ARX.reg,vc.nwX)
+```
+
+```{r}
+ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty$cpi_diff)  + lag(uncertainty$unemployment_growth) + lag(uncertainty$DIFF), data=uncertainty )
+
+vc.nwX <- NeweyWest(ARX.reg)
+
+coeftest(ARX.reg)
+coeftest(ARX.reg,vc.nwX)
+```
+
+```{r}
+ARX.reg <- lm( uncertainty_growth ~ lag(DIFF) +  lag(uncertainty_growth) + lag(uncertainty$unemployment_growth) + lag(uncertainty$INDPRO_growth), data=uncertainty )
+
+vc.nwX <- NeweyWest(ARX.reg)
+
+coeftest(ARX.reg)
+coeftest(ARX.reg,vc.nwX)
+```
+
