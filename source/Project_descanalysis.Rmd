@@ -9,7 +9,6 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-
 ```{r}
 rm(list=ls())
 
@@ -18,16 +17,30 @@ library(moments)
 library(dplyr)
 library(sandwich) ## used to compute NW SE's
 library(lmtest)
+library(tidyverse)
 
-source('C:/Users/henry/iCloudDrive/Vorlesungen/BA_Economics_UPF/Forecasting Techniques/Codes/Intro to Time Series/lib/utilities.R')
-setwd("C:/Users/henry/Dropbox/Forecasting Project")
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
 
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("../lib/utilities.R")
 ```
-
 
 Read the data
 ```{r}
-us <- read.csv("USEPUINDXD.csv")
+us <- read.csv("../data/daily/USEPUINDXD.csv")
 
 attach(us)
 datesus <- as.Date(DATE)
@@ -46,7 +59,7 @@ Notice that the chinese data is non-stationary!! US data is stationary
 Plot the data:
 ```{r}
 
-pdf(file='graphs.pdf',width=7,height=5) ### all comments afterwards will split be add to the pdf file (until dev.off)
+pdf(file='../images/graphs.pdf',width=7,height=5) ### all comments afterwards will split be add to the pdf file (until dev.off)
 ## raw data
 myplot(datesus, USEPUINDXD, col="red2", main = '')
 abline(h=mean(USEPUINDXD) , lwd=2)
@@ -144,7 +157,7 @@ jarque.test(log(USEPUINDXD))
 
 Autocorrelations:
 ```{r}
-pdf(file='correlations.pdf',width=7,height=5) ### all comments afterwards will split be add to the pdf file (until dev.off)
+pdf(file='../images/correlations.pdf',width=7,height=5) ### all comments afterwards will split be add to the pdf file (until dev.off)
 
 par(mfrow=c(2,1), mar=c(3,3,3,3))
 acf(USEPUINDXD, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='')
