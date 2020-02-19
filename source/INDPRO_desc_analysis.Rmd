@@ -1,0 +1,122 @@
+---
+title: "indpro_desc_analyses"
+author: "Henry Minör"
+date: "19 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list=ls())
+
+library(tseries)
+library(moments)
+library(dplyr)
+library(sandwich) ## used to compute NW SE's
+library(lmtest)
+library(tidyverse)
+
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("../lib/utilities.R")
+```
+
+Read the data
+```{r}
+us <- read.csv("../data/uncertainty_full.csv")
+attach(us)
+datesus <- as.Date(DATE)
+```
+
+Moments:
+```{r}
+stats.INDPRO_growth <- as.matrix( c( mean(INDPRO_growth) , sd(INDPRO_growth) , skewness(INDPRO_growth) , kurtosis(INDPRO_growth) ) ) 
+dimnames(stats.INDPRO_growth)[[1]] <- list('mean','std. dev.','skew','kurt')
+```
+
+
+Plot the data:
+```{r}
+png("../images/monthly/INDPRO/INDPRO_growth.png")
+myplot(datesus[1:length(datesus)], INDPRO_growth, col="tomato", main='')
+abline(h=mean(INDPRO_growth) , lwd=2)
+dev.off()
+
+### QQ Norms
+png("../images/monthly/INDPRO/QQ_INDPRO_growth.png")
+qqnorm(INDPRO_growth, col="tomato", main='')
+qqline(INDPRO_growth,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/monthly/INDPRO/histograms_INDPRO_growth.png")
+hist(INDPRO_growth,50,freq=FALSE,col='tomato',border='darkred', main='Histogram of INDPRO_growth', xlab='')
+dev.off()
+
+### Kernels
+png("../images/monthly/INDPRO/kernels_INDPRO_growth.png")
+plot( density(INDPRO_growth) ,yaxs='i', xlab='', main='' )
+polygon( density(INDPRO_growth),col="tomato" , border='darkred' )
+dev.off()
+
+#Autocorrelations:
+png(file='../images/monthly/INDPRO/ACF_INDPRO_growth.png') ### all comments afterwards will split be add to the png file (until dev.off)
+acf(INDPRO_growth, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25),  main='')
+dev.off()
+
+png(file='../images/monthly/INDPRO/PACF_INDPRO_growth.png')
+pacf(INDPRO_growth, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='' )
+dev.off()
+
+```
+
+
+Tests:
+```{r}
+#T-Test for mean zero
+t.test(INDPRO_growth, mu=mean(INDPRO_growth))
+ttest.INDPRO_growth <- t.test(INDPRO_growth, mu=mean(INDPRO_growth))
+T.INDPRO_growth <- as.matrix( c(ttest.INDPRO_growth$statistic, ttest.INDPRO_growth$p.value ) ) 
+dimnames(T.INDPRO_growth)[[1]] <- list('Statistic', 'P-Value')
+round(T.INDPRO_growth, 3)
+
+# Test for stationarity
+adf.test(us$INDPRO_growth)
+adf.INDPRO_growth <- adf.test((INDPRO_growth))
+ADF.INDPRO_growth <- as.matrix( c(adf.INDPRO_growth$statistic, adf.INDPRO_growth$p.value ) ) 
+dimnames(ADF.INDPRO_growth)[[1]] <- list('Statistic', 'P-Value')
+round(ADF.INDPRO_growth, 3)
+
+#Jarque-Bera test for normality:
+jarque.test(INDPRO_growth)
+jb.INDPRO_growth <- jarque.test((INDPRO_growth))
+JB.INDPRO_growth <- as.matrix(c(jb.INDPRO_growth$statistic, jb.INDPRO_growth$p.value))
+dimnames(JB.INDPRO_growth)[[1]] <- list('Statistic', 'P-Value')
+JB.INDPRO_growth
+
+#Ljung-Box Tests autocorrelation:
+Box.test(INDPRO_growth , type = c("Ljung-Box"))
+box.INDPRO_growth <- Box.test(INDPRO_growth , type = c("Ljung-Box"))
+BOX.INDPRO_growth <- as.matrix( c(box.INDPRO_growth$statistic, box.INDPRO_growth$p.value ) ) 
+dimnames(BOX.INDPRO_growth)[[1]] <- list('Statistic', 'P-Value')
+round(BOX.INDPRO_growth, 3)
+```
+
+

@@ -1,0 +1,125 @@
+---
+title: "CPI"
+author: "Henry Minör"
+date: "19 2 2020"
+output: html_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list=ls())
+
+library(tseries)
+library(moments)
+library(dplyr)
+library(sandwich) ## used to compute NW SE's
+library(lmtest)
+library(tidyverse)
+
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("../lib/utilities.R")
+```
+
+Read the data
+```{r}
+us <- read.csv("../data/uncertainty_full.csv")
+attach(us)
+datesus <- as.Date(DATE)
+```
+
+Moments:
+```{r}
+stats.cpi_diff <- as.matrix( c( mean(cpi_diff) , sd(cpi_diff) , skewness(cpi_diff) , kurtosis(cpi_diff) ) ) 
+dimnames(stats.cpi_diff)[[1]] <- list('mean','std. dev.','skew','kurt')
+```
+
+
+Plot the data:
+```{r}
+png("../images/monthly/CPI/cpi_diff.png")
+myplot(datesus[1:length(datesus)], cpi_diff, col="tomato", main='')
+abline(h=mean(cpi_diff) , lwd=2)
+dev.off()
+
+### QQ Norms
+png("../images/monthly/CPI/QQ_cpi_diff.png")
+qqnorm(cpi_diff, col="tomato", main='')
+qqline(cpi_diff,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/monthly/CPI/histograms_cpi_diff.png")
+par(mfrow=c(2,1))
+hist(cpi_diff,50,freq=FALSE,col='tomato',border='darkred', main='Histogram of cpi_diff', xlab='')
+dev.off()
+
+### Kernels
+png("../images/monthly/CPI/kernels_cpi_diff.png")
+par(mfrow=c(2,1))
+plot( density(cpi_diff) ,yaxs='i', xlab='', main='' )
+polygon( density(cpi_diff),col="tomato" , border='darkred' )
+dev.off()
+
+#Autocorrelations:
+png(file='../images/monthly/CPI/ACF_cpi_diff.png') ### all comments afterwards will split be add to the png file (until dev.off)
+acf(cpi_diff, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25),  main='')
+dev.off()
+
+png(file='../images/monthly/CPI/PACF_cpi_diff.png')
+pacf(cpi_diff, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='' )
+dev.off()
+
+```
+
+
+Tests:
+```{r}
+#T-Test for mean zero
+t.test(cpi_diff, mu=mean(cpi_diff))
+ttest.cpi_diff <- t.test(cpi_diff, mu=mean(cpi_diff))
+T.cpi_diff <- as.matrix( c(ttest.cpi_diff$statistic, ttest.cpi_diff$p.value ) ) 
+dimnames(T.cpi_diff)[[1]] <- list('Statistic', 'P-Value')
+round(T.cpi_diff, 3)
+
+# Test for stationarity
+adf.test(us$cpi_diff)
+adf.cpi_diff <- adf.test((cpi_diff))
+ADF.cpi_diff <- as.matrix( c(adf.cpi_diff$statistic, adf.cpi_diff$p.value ) ) 
+dimnames(ADF.cpi_diff)[[1]] <- list('Statistic', 'P-Value')
+round(ADF.cpi_diff, 3)
+
+#Jarque-Bera test for normality:
+jarque.test(cpi_diff)
+jb.cpi_diff <- jarque.test((cpi_diff))
+JB.cpi_diff <- as.matrix(c(jb.cpi_diff$statistic, jb.cpi_diff$p.value))
+dimnames(JB.cpi_diff)[[1]] <- list('Statistic', 'P-Value')
+JB.cpi_diff
+
+#Ljung-Box Tests autocorrelation:
+Box.test(cpi_diff , type = c("Ljung-Box"))
+box.cpi_diff <- Box.test(cpi_diff , type = c("Ljung-Box"))
+BOX.cpi_diff <- as.matrix( c(box.cpi_diff$statistic, box.cpi_diff$p.value ) ) 
+dimnames(BOX.cpi_diff)[[1]] <- list('Statistic', 'P-Value')
+round(BOX.cpi_diff, 3)
+```
+
+

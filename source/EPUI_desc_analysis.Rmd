@@ -1,0 +1,171 @@
+---
+title: "Project Forecasting"
+author: "Henry Minör"
+date: "9 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list=ls())
+
+library(tseries)
+library(moments)
+library(dplyr)
+library(sandwich) ## used to compute NW SE's
+library(lmtest)
+library(tidyverse)
+
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("../lib/utilities.R")
+```
+
+Read the data
+```{r}
+us <- read.csv("../data/USEPUINDXM.csv")
+datesus <- as.Date(us$DATE)
+difflogus <- diff(log(us$USEPUINDXM))*100
+```
+
+Moments:
+```{r}
+stats.USEPUINDXM <- as.matrix( c( mean(us$USEPUINDXM) , sd(us$USEPUINDXM) , skewness(us$USEPUINDXM) , kurtosis(us$USEPUINDXM) ) ) 
+dimnames(stats.USEPUINDXM)[[1]] <- list('mean','std. dev.','skew','kurt')
+
+stats.difflogus <- as.matrix( c( mean(difflogus) , sd(difflogus) , skewness(difflogus) , kurtosis(difflogus) ) ) 
+dimnames(stats.difflogus)[[1]] <- list('mean','std. dev.','skew','kurt')
+```
+
+
+Plot the data:
+```{r}
+png("../images/monthly/EPU/originalUSEPUINDXM.png")
+myplot(datesus[1:length(datesus)], us$USEPUINDXM, col="tomato", main='')
+abline(h=mean(us$USEPUINDXM) , lwd=2)
+dev.off()
+
+png("../images/monthly/EPU/logdiffUSEPUINDXM.png")
+myplot(datesus[2:length(datesus)], difflogus, col="tomato", main='')
+abline(h=mean(difflogus) , lwd=2)
+dev.off()
+
+### QQ Norms
+png("../images/monthly/EPU/QQ_USEPUINDXM.png")
+qqnorm(us$USEPUINDXM,col='tomato', main='')
+qqline(us$USEPUINDXM,lwd=2,lty=3)
+dev.off()
+
+png("../images/monthly/EPU/QQ_logdiffUSEPUINDXM.png")
+qqnorm(difflogus, col="tomato", main='')
+qqline(difflogus,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/monthly/EPU/histogramsUSEPUINDXM.png")
+par(mfrow=c(2,1))
+hist(us$USEPUINDXM,50,freq=FALSE,col='tomato',border='darkred', xlab= '', main='us$USEPUINDXM')
+hist(difflogus,50,freq=FALSE,col='tomato',border='darkred', main='Log difference of us$USEPUINDXM', xlab='')
+dev.off()
+
+### Kernels
+png("../images/monthly/EPU/kernelsUSEPUINDXM.png")
+par(mfrow=c(2,1))
+plot( density(us$USEPUINDXM) , yaxs='i', xlab='', main='' )
+polygon( density(us$USEPUINDXM), col="tomato", border='darkred')
+plot( density(difflogus) ,yaxs='i', xlab='', main='' )
+polygon( density(difflogus),col="tomato" , border='darkred' )
+dev.off()
+
+#Autocorrelations:
+png(file='../images/monthly/EPU/ACF_USEPUINDXM.png') ### all comments afterwards will split be add to the png file (until dev.off)
+
+par(mfrow=c(2,1), mar=c(3,3,3,3))
+acf(us$USEPUINDXM, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='')
+#acf(logus, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25) ,  main = "Partial Autocorrelation of log of EPU")
+acf(difflogus, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25),  main='')
+dev.off()
+
+png(file='../images/monthly/EPU/PACF_USEPUINDXM.png')
+par(mfrow=c(2,1), mar=c(3,3,3,3))
+pacf(us$USEPUINDXM, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25) , main='')
+#pacf(logus, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25) ,  main = "Partial Autocorrelation of log of EPU")
+pacf(difflogus, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='' )
+dev.off()
+
+```
+
+
+Tests:
+```{r}
+#T-Test for mean zero
+t.test(us$USEPUINDXM, mu=mean(us$USEPUINDXM))
+ttest.USEPUINDXM <- t.test(us$USEPUINDXM, mu=mean(us$USEPUINDXM))
+T.USEPUINDXM  <- as.matrix( c(ttest.USEPUINDXM$statistic, ttest.USEPUINDXM$p.value ) ) 
+round(T.USEPUINDXM, 3)
+
+t.test(difflogus, mu=mean(difflogus))
+ttest.difflogus <- t.test(difflogus, mu=mean(difflogus))
+T.difflogus <- as.matrix( c(ttest.difflogus$statistic, ttest.difflogus$p.value ) ) 
+dimnames(T.difflogus)[[1]] <- list('Statistic', 'P-Value')
+round(T.difflogus, 3)
+
+# Test for stationarity
+adf.test(us$USEPUINDXM)
+adf.USEPUINDXM <- adf.test((us$USEPUINDXM))
+ADF.USEPUINDXM <- as.matrix( c(adf.USEPUINDXM$statistic, adf.USEPUINDXM$p.value ) ) 
+dimnames(ADF.USEPUINDXM)[[1]] <- list('Statistic', 'P-Value')
+round(ADF.USEPUINDXM, 3)
+
+adf.test((difflogus))
+adf.difflogus <- adf.test((difflogus))
+ADF.difflogus <- as.matrix( c(adf.difflogus$statistic, adf.difflogus$p.value ) ) 
+dimnames(ADF.difflogus)[[1]] <- list('Statistic', 'P-Value')
+round(ADF.difflogus, 3)
+
+#Jarque-Bera test for normality:
+jarque.test(us$USEPUINDXM)
+jb.USEPUINDXM <- jarque.test((us$USEPUINDXM))
+JB.USEPUINDXM <- as.matrix(c(jb.USEPUINDXM$statistic, jb.USEPUINDXM$p.value))
+dimnames(JB.USEPUINDXM)[[1]] <- list('Statistic', 'P-Value')
+round(JB.USEPUINDXM, 3)
+
+jarque.test(difflogus)
+jb.difflogus <- jarque.test((difflogus))
+JB.difflogus <- as.matrix(c(jb.difflogus$statistic, jb.difflogus$p.value))
+dimnames(JB.difflogus)[[1]] <- list('Statistic', 'P-Value')
+round(JB.difflogus, 3)
+
+#Ljung-Box Tests autocorrelation:
+Box.test(us$USEPUINDXM , type = c("Ljung-Box"))
+box.USEPUINDXM <- Box.test(us$USEPUINDXM , type = c("Ljung-Box"))
+BOX.USEPUINDXM <- as.matrix( c(box.USEPUINDXM$statistic, box.USEPUINDXM$p.value ) ) 
+dimnames(BOX.USEPUINDXM)[[1]] <- list('Statistic', 'P-Value')
+round(BOX.USEPUINDXM, 3)
+
+Box.test(difflogus , type = c("Ljung-Box"))
+box.difflogus <- Box.test(difflogus , type = c("Ljung-Box"))
+BOX.difflogus <- as.matrix( c(box.difflogus$statistic, box.difflogus$p.value ) ) 
+dimnames(BOX.difflogus)[[1]] <- list('Statistic', 'P-Value')
+round(BOX.difflogus, 3)
+
+```
+
+
