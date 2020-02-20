@@ -1,0 +1,201 @@
+---
+title: "predict_indpro"
+author: "Henry Minör"
+date: "20 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+rm(list=ls())
+
+library(tseries)
+library(moments)
+library(dplyr)
+library(forecast)
+library(sandwich) ## used to compute NW SE's
+library(lmtest)
+library(tidyverse)
+
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("../lib/utilities.R")
+
+```
+
+Read the data
+```{r}
+us <- read.csv("../data/uncertainty_full.csv")
+datesus <- as.Date(DATE)
+
+is <- us[1:(nrow(us)*0.8), ]
+
+attach(is)
+os <- us[(nrow(is)+1):419, ]
+
+```
+
+# Build the Models
+
+##Industrial Prodcution
+```{r}
+## ARMA (1,3) AS BENCHMARK MODEL (BEST MODEL WITH RESPECT TO AIC AND BIC)
+
+arma13 <- auto.arima(INDPRO_growth)
+summary(arma13)
+arma13_res <- arma13$residuals
+arma13_hat <- INDPRO_growth+ arma13_res 
+
+## Information Criteria
+arma13_aic    <- (-2*arma13$loglik+2*6)/length(is)
+arma13_bic    <- (-2*arma13$loglik+log(length(is))*6)/length(is) 
+print(rbind(c('AIC', 'BIC'), c(arma13_aic, arma13_bic)))
+
+## ACF
+png("../images/Regressions/residuals/ACF_arma13_res.png")
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( arma13_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( arma13_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+dev.off()
+
+### QQ Norms
+png("../images/Regressions/residuals/QQ_arma13_res.png")
+qqnorm(arma13_res, col="tomato", main='')
+qqline(arma13_res,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/Regressions/residuals/histograms_arma13_res.png")
+hist(arma13_res,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
+dev.off()
+
+### Kernels
+png("../images/Regressions/residuals/kernels_arma13_res.png")
+plot( density(arma13_res) ,yaxs='i', xlab='', main='' )
+polygon( density(arma13_res),col="tomato" , border='darkred' )
+dev.off()
+
+### Tests
+jarque.test(as.numeric(arma13_res))
+t.test(arma13_res)
+Box.test(arma13_res, type="Ljung-Box")
+adf.test(arma13_res)
+
+```
+
+
+Industrial Production only on the 2 lags of the change in EPU:
+```{r}
+### INDPRO-EPU
+regINDPROEPU12 <- lm(INDPRO_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n = 2))
+summary(regINDPROEPU12)
+regINDPROEPU12_res <-  regINDPROEPU12$residuals
+
+## Information Criteria
+print(rbind(c('AIC', 'BIC'), c(AIC(regINDPROEPU12), BIC(regINDPROEPU12))))
+
+## ACFs
+png("../images/Regressions/residuals/ACF_regINDPROEPU12_res.png")
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( regINDPROEPU12_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( regINDPROEPU12_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+dev.off()
+
+### QQ Norms
+png("../images/Regressions/residuals/QQ_regINDPROEPU12_res.png")
+qqnorm(regINDPROEPU12_res, col="tomato", main='')
+qqline(regINDPROEPU12_res,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/Regressions/residuals/histograms_regINDPROEPU12_res.png")
+hist(regINDPROEPU12_res,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
+dev.off()
+
+### Kernels
+png("../images/Regressions/residuals/kernels_regINDPROEPU12_res.png")
+plot( density(regINDPROEPU12_res) ,yaxs='i', xlab='', main='' )
+polygon( density(regINDPROEPU12_res),col="tomato" , border='darkred' )
+dev.off()
+
+### Tests
+jarque.test(as.numeric(regINDPROEPU12_res))
+t.test(regINDPROEPU12_res)
+Box.test(regINDPROEPU12_res, type="Ljung-Box")
+adf.test(regINDPROEPU12_res)
+
+```
+
+```{r}
+
+regINDPROINDPRO2UNEMP2CPI2EPU2 <- lm(INDPRO_growth ~ lag(INDPRO_growth) +lag(INDPRO_growth, n=2)  + lag(cpi_diff) + lag(cpi_diff, n=2) + lag(UNRATE) + lag(UNRATE, n=2) +lag(uncertainty_growth) +  lag(uncertainty_growth, n = 2))
+summary(regINDPROINDPRO2UNEMP2CPI2EPU2)
+regINDPROINDPRO2UNEMP2CPI2EPU2_res <-  regINDPROINDPRO2UNEMP2CPI2EPU2$residuals
+
+## Information Criteria
+print(rbind(c('AIC', 'BIC'), c(AIC(regINDPROINDPRO2UNEMP2CPI2EPU2), BIC(regINDPROINDPRO2UNEMP2CPI2EPU2))))
+
+## ACFs
+png("../images/Regressions/residuals/ACF_regINDPROEPU12_res.png")
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( regINDPROINDPRO2UNEMP2CPI2EPU2_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( regINDPROINDPRO2UNEMP2CPI2EPU2_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+dev.off()
+
+### QQ Norms
+png("../images/Regressions/residuals/QQ_regINDPROINDPRO2UNEMP2CPI2EPU2_res.png")
+qqnorm(regINDPROINDPRO2UNEMP2CPI2EPU2_res, col="tomato", main='')
+qqline(regINDPROINDPRO2UNEMP2CPI2EPU2_res,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/Regressions/residuals/histograms_regINDPROINDPRO2UNEMP2CPI2EPU2_res.png")
+hist(regINDPROINDPRO2UNEMP2CPI2EPU2_res,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
+dev.off()
+
+### Kernels
+png("../images/Regressions/residuals/kernels_regINDPROINDPRO2UNEMP2CPI2EPU2_res.png")
+plot( density(regINDPROINDPRO2UNEMP2CPI2EPU2_res) ,yaxs='i', xlab='', main='' )
+polygon( density(regINDPROINDPRO2UNEMP2CPI2EPU2_res),col="tomato" , border='darkred' )
+dev.off()
+
+### Tests
+jarque.test(as.numeric(regINDPROINDPRO2UNEMP2CPI2EPU2_res))
+t.test(regINDPROINDPRO2UNEMP2CPI2EPU2_res)
+Box.test(regINDPROINDPRO2UNEMP2CPI2EPU2_res, type="Ljung-Box")
+adf.test(regINDPROINDPRO2UNEMP2CPI2EPU2_res)
+nw.regINDPROINDPRO2UNEMP2CPI2EPU2 <- NeweyWest(regINDPROINDPRO2UNEMP2CPI2EPU2)
+coeftest(nw.regINDPROINDPRO2UNEMP2CPI2EPU2)
+
+
+
+```
+
+
+```{r}
+plot( is$DATE , is$INDPRO_growth , main='', ylim=c(min(is$INDPRO_growth),max(is$INDPRO_growth)) , tck= 12, ylab='',xlab='Date'  , col='darkorange') 
+```
+

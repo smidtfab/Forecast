@@ -1,0 +1,88 @@
+```{r}
+rm( list=ls() )
+library(sandwich)
+library(lmtest)
+library(readr)
+library(dplyr)
+library(plyr)
+library(tseries)
+library(moments)
+```
+
+ import data
+```{r}
+D = uncertainty_full
+is <- D[1:(nrow(D)*0.8), ]
+os <- D[(nrow(is)+1):419, ]
+```
+
+ Construct growth rate and plot it
+```{r}
+
+dip    <- diff(log(D$indpro))*100
+dsp500 <- diff(log(D$sp500))*100
+dhouse <- diff(log(D$house))*100
+dsent  <- diff(log(D$sent))*100
+dates  <- dates[2:T]
+T      <- T-1
+
+
+par(mfrow=c(2,2))
+myplot(dates,dip)
+myplot(dates,dsp500)
+myplot(dates,dhouse)
+myplot(dates,dsent)
+
+```
+
+ Autocorrelation analysis
+```{R}
+par(mfrow=c(2,1),mar=c(2,2,0.1,0.1))
+acf(is$USEPUINDXM , ylim=c(-0.1,1) , lwd=5 , xlim=c(0,25) , col='darkorange2',main='')
+pacf(is$USEPUINDXM , ylim=c(-0.1,1) , lwd=5 , xlim=c(0,25) , col='darkorange2',main='')
+```
+
+```{r}
+arima(is$USEPUINDXM,order=c(0,0,1))
+```
+
+```{r}
+arima(is$uncertainty_growth,order=c(2,0,1))
+```
+
+ Run regression and report estimation results with and without robust std-err
+```{r}
+data  <- data.frame( y=dip[2:T] , dip=dip[1:(T-1)] , dhouse=dhouse[1:(T-1)] ,  dsp500=dsp500[1:(T-1)] , dsent=dsent[1:(T-1)] )
+
+pred.reg <- lm( y ~ dip + dsp500 + dhouse +  dsent , data=data )
+
+vc.nw <- NeweyWest(pred.reg)
+
+coeftest(pred.reg)
+coeftest(pred.reg,vc.nw)
+```
+
+
+
+```{r}
+ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n=2)  + lag(uncertainty_growth, n=3) + lag(uncertainty_growth, n=4) + lag(uncertainty_growth, n=5)  + lag(uncertainty_growth, n=6) + lag(uncertainty_growth, n=7) + lag(rate_diff) + lag(cpi_diff)  + lag(unemployment_growth) + lag(INDPRO_growth) + lag(DIFF), data=is )
+
+vc.nwX <- NeweyWest(ARX.reg)
+
+coeftest(ARX.reg)
+coeftest(ARX.reg,vc.nwX)
+
+res_1 = ARX.reg$residuals[321]
+
+summary(lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n=2)  + lag(uncertainty_growth, n=3) + lag(uncertainty_growth, n=4) + lag(uncertainty_growth, n=5)  + lag(uncertainty_growth, n=6) + lag(uncertainty_growth, n=7) + lag(rate_diff) + lag(cpi_diff)  + lag(unemployment_growth) + lag(INDPRO_growth) + lag(DIFF), data=is))
+```
+
+```{r}
+A = arima(is$uncertainty_growth,order=c(2,0,1), xreg = data.frame(is$unemployment_growth, is$rate_diff, is$INDPRO_growth, is$cpi_diff))
+
+acf(eps, ylim=c(-0.1,1) , lwd=5 , xlim=c(0,25) , col='darkorange2',main='')
+
+summary(A)
+
+A
+```
