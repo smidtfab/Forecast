@@ -5,25 +5,26 @@ output: html_document
 
 ```{r}
 library(readr)
-library("stringr")
+library(stringr)
 library(dplyr)
 library(plyr)
-library("tibble")
-library("reshape2")
+library(tibble)
+library(reshape2)
 library(tseries)
 library(moments)
 library(lubridate)
-library("sandwich")
+library(sandwich)
 library(lmtest)
+library(forecast)
 ```
 
 ```{r setup, include=FALSE}
-rate = read_csv("FEDFUNDS.csv") 
-uncert = read_csv("USEPUINDXM.csv") 
-cpi = read_csv("CPALTT01USM659N.csv") 
-unempol = read_csv("UNRATE.csv")
-indpro = read_csv("INDPRO.csv")
-election = read_delim("diff_election_date.csv", delim = ";")
+rate = read_csv("data/FEDFUNDS.csv") 
+uncert = read_csv("data/USEPUINDXM.csv") 
+cpi = read_csv("data/CPALTT01USM659N.csv") 
+unempol = read_csv("data/UNRATE.csv")
+indpro = read_csv("data/INDPRO.csv")
+election = read_delim("data/diff_election_date.csv", delim = ";")
 ```
 
 ```{r}
@@ -59,8 +60,302 @@ uncertainty$uncertainty_growth=uncertainty_growth
 
 
 ```{r}
-write.csv(uncertainty, file = "uncertainty_full.csv")
+# Write the csv
+write.csv(uncertainty, file = "data/uncertainty_full.csv")
 ```
+
+```{r}
+#train test split
+is <- head(uncertainty, round(nrow(uncertainty) * 0.8))
+h <- nrow(uncertainty) - nrow(is)
+os <- tail(uncertainty, h)
+```
+
+
+```{r}
+# best model by Konstantin
+ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n = 2L) + lag(uncertainty_growth, n = 3L) + lag(uncertainty_growth, n = 4L) + lag(unemployment_growth) + lag(unemployment_growth, n = 2L) + lag(cpi_diff) + lag(cpi_diff, n = 2L) + lag(INDPRO_growth) + lag(DIFF), data=is )
+
+```
+
+
+```{r}
+#  Estimate ARMA Models
+
+ar1    = arima(is$uncertainty_growth,order=c(1,0,0))
+ar2    = arima(is$uncertainty_growth,order=c(2,0,0))
+ma1    = arima(is$uncertainty_growth,order=c(0,0,1))
+ma2    = arima(is$uncertainty_growth,order=c(0,0,2))
+arma11 = arima(is$uncertainty_growth,order=c(1,0,1))
+
+```
+
+```{r}
+# Goodness-of-fit indices
+AIC(ARX.reg)
+ARX.reg$loglik <- NA
+
+```
+
+```{r}
+
+length.reg.one <- length(is$uncertainty_growth) - 1 
+
+ar1_aic    <- (-2*ar1$loglik+2*3) / length.reg.one
+ar2_aic    <- (-2*ar2$loglik+2*3) / (length.reg.one - 1) 
+ma1_aic    <- (-2*ma1$loglik+2*3) / length.reg.one
+ma2_aic    <- (-2*ma2$loglik+2*4) / (length.reg.one - 1) 
+arma11_aic <- (-2*arma11$loglik+2*4)/ length.reg.one
+
+ar1_bic    <- (-2*ar1$loglik+log(length(is$uncertainty_growth))*3) / length.reg.one
+ar2_bic    <- (-2*ar2$loglik+log(length(is$uncertainty_growth))*3) / (length.reg.one - 1) 
+ma1_bic    <- (-2*ma1$loglik+log(length(is$uncertainty_growth))*3) / length.reg.one
+ma2_bic    <- (-2*ma2$loglik+log(length(is$uncertainty_growth))*4) / (length.reg.one - 1) 
+arma11_bic <- (-2*arma11$loglik+log(length(is$uncertainty_growth))*4) / length.reg.one
+
+```
+
+```{r}
+# for lm no log likelihood
+
+round( rbind( c(ARX.reg$loglik, ar1$loglik,ar2$loglik, ma1$loglik,ma2$loglik,arma11$loglik), 
+              c(AIC(ARX.reg), ar1_aic, ar2_aic, ma1_aic, ma2_aic, arma11_aic) , 
+              c(BIC(ARX.reg), ar1_bic, ar2_bic, ma1_bic,ma2_bic,arma11_bic) ) ,  6 )
+```
+
+
+ FITTED VALUES
+ 
+```{r}
+ar1_mu     <- (is$uncertainty_growth)-ar1$residuals
+ar2_mu     <- (is$uncertainty_growth)-ar2$residuals
+ma1_mu     <- is$uncertainty_growth-ma1$residuals
+ma2_mu     <- is$uncertainty_growth-ma2$residuals
+arma11_mu  <- is$uncertainty_growth-arma11$residuals
+arx_mu <- is$uncertainty_growth[5:length(is$uncertainty_growth)] - ARX.reg$residuals
+
+ar1_res    <- as.numeric(ar1$residuals)
+ar2_res    <- as.numeric(ar2$residuals)
+ma1_res    <- as.numeric(ma1$residuals)
+ma2_res    <- as.numeric(ma2$residuals)
+arma11_res <- as.numeric(arma11$residuals)
+arx_res <- as.numeric(ARX.reg$residuals)
+```
+
+```{r}
+# ar1 residuals plot
+par( mar=c(2,2,1,1) , xaxs="i" , mfrow=c(2,1) )
+plot( is$DATE , ar1_mu , t='l' , lwd=2 , col='blue3' , ylim=c(0,10) )
+grid( lwd=1 , col="darkgrey" )
+plot( is$DATE , ar1_res/sd(ar1_res) , col='purple' , t='p'  , ylim=c(-4,4) )
+abline( h=0 , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( ar1_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( ar1_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+
+# ar2 residuals plot
+par( mar=c(2,2,1,1) , xaxs="i" , mfrow=c(2,1) )
+plot( is$DATE , ar2_mu , t='l' , lwd=2 , col='blue3' , ylim=c(0,10) )
+grid( lwd=1 , col="darkgrey" )
+plot( is$DATE , ar2_res/sd(ar1_res) , col='purple' , t='p'  , ylim=c(-4,4) )
+abline( h=0 , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( ar2_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( ar2_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+
+# ma1 
+par( mar=c(2,2,1,1) , xaxs="i" , mfrow=c(2,1) )
+plot( is$DATE , ma1_mu , t='l' , lwd=2 , col='blue3' , ylim=c(0,10) )
+grid( lwd=1 , col="darkgrey" )
+plot( is$DATE , ma1_res/sd(ar1_res) , col='purple' , t='p'  , ylim=c(-4,4) )
+abline( h=0 , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( ma1_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( ma1_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+
+# ma2
+par( mar=c(2,2,1,1) , xaxs="i" , mfrow=c(2,1) )
+plot( is$DATE , ma2_mu , t='l' , lwd=2 , col='blue3' , ylim=c(0,10) )
+grid( lwd=1 , col="darkgrey" )
+plot( is$DATE , ma2_res/sd(ar1_res) , col='purple' , t='p'  , ylim=c(-4,4) )
+abline( h=0 , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( ma2_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( ma2_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+
+# arma11
+png(file='images/residuals_arma11.png')
+par( mar=c(2,2,1,1) , xaxs="i" , mfrow=c(2,1) )
+plot( is$DATE , arma11_mu , t='l' , lwd=2 , col='blue3' , ylim=c(0,10) )
+grid( lwd=1 , col="darkgrey" )
+plot( is$DATE , arma11_res/sd(ar1_res) , col='purple' , t='p'  , ylim=c(-4,4) )
+abline( h=0 , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+dev.off()
+
+png(file='images/acf_pacf_arma11.png')
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( arma11_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( arma11_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+dev.off()
+
+# arx.reg
+png(file='images/residuals_arx.png')
+par( mar=c(2,2,1,1) , xaxs="i" , mfrow=c(2,1) )
+plot( is$DATE[5:length(is$DATE)] , arx_mu , t='l' , lwd=2 , col='blue3' , ylim=c(0,10) )
+grid( lwd=1 , col="darkgrey" )
+plot( is$DATE[5:length(is$DATE)] , arx_res/sd(arx_res) , col='purple' , t='p'  , ylim=c(-4,4) )
+abline( h=0 , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+dev.off()
+
+png(file='images/acf_pacf_arx.png')
+par( mar=c(2,2,1,1) , mfrow=c(2,1) )
+acf( arx_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('ACF'),col=c('darkorange2'),lwd=3)
+pacf( arx_res , ylim=c(-0.2,1) , lwd=5 , xlim=c(0,25) , col='darkorange2' , tck=0.02)
+legend('topright',c('PACF'),col=c('darkorange2'),lwd=3)
+dev.off()
+```
+
+```{r}
+# Test for normality for residuals
+Box.test( ar1_res, lag=length(is$DATE) - 1 , type="Ljung-Box" )
+
+Box.test( ar2_res, lag=length(is$DATE) - 1 , type="Ljung-Box" )
+
+Box.test( ma1_res, lag=length(is$DATE) - 1 , type="Ljung-Box" )
+
+Box.test( ma2_res, lag=length(is$DATE) - 1 , type="Ljung-Box" )
+
+Box.test( arma11_res, lag=length(is$DATE) - 1 , type="Ljung-Box" )
+
+Box.test( arx_res, lag=length(is$DATE[5:length(is$DATE)]) - 1 , type="Ljung-Box" )
+```
+
+```{r}
+# JB Test
+jarque.test(ar1_res)
+jarque.test(ar2_res)
+jarque.test(ma1_res)
+jarque.test(ma2_res)
+jarque.test(arma11_res)
+jarque.test(arx_res)
+```
+
+```{r}
+summary(ar1_res)
+summary(ar2_res)
+summary(ma1_res)
+summary(ma2_res)
+summary(arma11_res)
+summary(arx_res)
+
+descrEPU <- as.matrix( c( mean(ar1_res) , sd(ar1_res) , skewness(ar1_res) , kurtosis(ar1_res) ) ) 
+dimnames(descrEPU)[[1]] <- list('mean','std. dev.','skew','kurt')
+print(descrEPU)
+
+descrEPU <- as.matrix( c( mean(ar2_res) , sd(ar2_res) , skewness(ar2_res) , kurtosis(ar2_res) ) ) 
+dimnames(descrEPU)[[1]] <- list('mean','std. dev.','skew','kurt')
+print(descrEPU)
+
+descrEPU <- as.matrix( c( mean(ma1_res) , sd(ma1_res) , skewness(ma1_res) , kurtosis(ma1_res) ) ) 
+dimnames(descrEPU)[[1]] <- list('mean','std. dev.','skew','kurt')
+print(descrEPU)
+
+descrEPU <- as.matrix( c( mean(ma2_res) , sd(ma2_res) , skewness(ma2_res) , kurtosis(ma2_res) ) ) 
+dimnames(descrEPU)[[1]] <- list('mean','std. dev.','skew','kurt')
+print(descrEPU)
+
+descrEPU <- as.matrix( c( round(mean(arma11_res), 3) , round(sd(arma11_res), 3), round(skewness(arma11_res), 3) , round(kurtosis(arma11_res), 3) ) ) 
+dimnames(descrEPU)[[1]] <- list('mean','std. dev.','skew','kurt')
+print(descrEPU)
+
+descrEPU <- as.matrix( c( round(mean(arx_res), 3) , round(sd(arx_res), 3) , round(skewness(arx_res), 3) , round(kurtosis(arx_res), 3) ) ) 
+dimnames(descrEPU)[[1]] <- list('mean','std. dev.','skew','kurt')
+print(descrEPU)
+
+```
+
+```{r}
+par( mar=c(2,2,3,2) , mfrow=c(2,3) )
+kernel <- density(ar1_res/sqrt(ar1$sigma2))
+plot( kernel , main='AR1' )
+polygon( kernel , col="tomato" , border='darkred')
+abline(h=0,lwd=2)
+lines( seq(-10,20,0.1) , dnorm( seq(-10,20,0.1) ) , col='darkblue' ,lwd=2 )
+
+kernel <- density(ar2_res/sqrt(ar2$sigma2))
+plot( kernel , main='AR1' )
+polygon( kernel , col="tomato" , border='darkred')
+abline(h=0,lwd=2)
+lines( seq(-10,20,0.1) , dnorm( seq(-10,20,0.1) ) , col='darkblue' ,lwd=2 )
+
+kernel <- density(ma1_res/sqrt(ma1$sigma2))
+plot( kernel , main='MA1' )
+polygon( kernel , col="tomato" , border='darkred')
+abline(h=0,lwd=2)
+lines( seq(-10,20,0.1) , dnorm( seq(-10,20,0.1) ) , col='darkblue' ,lwd=2 )
+
+kernel <- density(ma2_res/sqrt(ma2$sigma2))
+plot( kernel , main='MA2' )
+polygon( kernel , col="tomato" , border='darkred')
+abline(h=0,lwd=2)
+lines( seq(-10,20,0.1) , dnorm( seq(-10,20,0.1) ) , col='darkblue' ,lwd=2 )
+
+kernel <- density(arma11_res/sqrt(arma11$sigma2))
+plot( kernel , main='ARMA11' )
+polygon( kernel , col="tomato" , border='darkred')
+abline(h=0,lwd=2)
+lines( seq(-10,20,0.1) , dnorm( seq(-10,20,0.1) ) , col='darkblue' ,lwd=2 )
+
+#kernel <- density(arx_res/sqrt(ARX.reg$))
+#plot( kernel , main='ARX' )
+#polygon( kernel , col="tomato" , border='darkred')
+#abline(h=0,lwd=2)
+#lines( seq(-10,20,0.1) , dnorm( seq(-10,20,0.1) ) , col='darkblue' ,lwd=2 )
+```
+
+```{r}
+# QQ-Plot
+qqnorm(ar1_res,col='tomato',main='AR1')
+qqline(ar1_res,lwd=2,lty=3)
+
+qqnorm(ar2_res,col='tomato',main='AR2')
+qqline(ar2_res,lwd=2,lty=3)
+
+qqnorm(ma1_res,col='tomato',main='MA1')
+qqline(ma1_res,lwd=2,lty=3)
+
+qqnorm(ma2_res,col='tomato',main='MA2')
+qqline(ma2_res,lwd=2,lty=3)
+
+qqnorm(arma11_res,col='tomato',main='ARMA11')
+qqline(arma11_res,lwd=2,lty=3)
+
+qqnorm(arx_res,col='tomato',main='ARX')
+qqline(arx_res,lwd=2,lty=3)
+```
+
+Different models
 
 ```{r}
 ARX.reg <- lm( uncertainty_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n=2L)  + lag(uncertainty_growth, n=3L) + lag(uncertainty_growth, n=4L) + lag(uncertainty_growth, n=5L)  + lag(uncertainty_growth, n=6L) + lag(uncertainty_growth, n=7L) + lag(rate_diff) + lag(uncertainty$cpi_diff)  + lag(uncertainty$unemployment_growth) + lag(uncertainty$INDPRO_growth) + lag(uncertainty$DIFF), data=uncertainty )
