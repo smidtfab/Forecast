@@ -68,13 +68,11 @@ dev.off()
 
 ### histograms
 png("../images/monthly/CPI/histograms_cpi_diff.png")
-par(mfrow=c(2,1))
-hist(cpi_diff,50,freq=FALSE,col='tomato',border='darkred', main='Histogram of cpi_diff', xlab='')
+hist(cpi_diff,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
 dev.off()
 
 ### Kernels
 png("../images/monthly/CPI/kernels_cpi_diff.png")
-par(mfrow=c(2,1))
 plot( density(cpi_diff) ,yaxs='i', xlab='', main='' )
 polygon( density(cpi_diff),col="tomato" , border='darkred' )
 dev.off()

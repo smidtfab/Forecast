@@ -81,8 +81,8 @@ dev.off()
 ### histograms
 png("../images/monthly/EPU/histogramsUSEPUINDXM.png")
 par(mfrow=c(2,1))
-hist(us$USEPUINDXM,50,freq=FALSE,col='tomato',border='darkred', xlab= '', main='us$USEPUINDXM')
-hist(difflogus,50,freq=FALSE,col='tomato',border='darkred', main='Log difference of us$USEPUINDXM', xlab='')
+hist(us$USEPUINDXM,50,freq=FALSE,col='tomato',border='darkred', xlab= '', main='')
+hist(difflogus,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
 dev.off()
 
 ### Kernels

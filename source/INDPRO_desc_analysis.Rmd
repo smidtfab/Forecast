@@ -67,7 +67,7 @@ dev.off()
 
 ### histograms
 png("../images/monthly/INDPRO/histograms_INDPRO_growth.png")
-hist(INDPRO_growth,50,freq=FALSE,col='tomato',border='darkred', main='Histogram of INDPRO_growth', xlab='')
+hist(INDPRO_growth,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
 dev.off()
 
 ### Kernels

@@ -1,0 +1,94 @@
+---
+title: "IS_Inv_Regression"
+author: "Henry Minör"
+date: "20 2 2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+
+```{r}
+rm(list=ls())
+
+library(tseries)
+library(moments)
+library(dplyr)
+library(sandwich) ## used to compute NW SE's
+library(lmtest)
+library(tidyverse)
+
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
+
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("./lib/utilities.R")
+
+```
+
+Read the data
+```{r}
+us <- read.csv("./data/uncertainty_full.csv")
+datesus <- as.Date(DATE)
+
+is <- us[1:335, ]
+
+attach(is)
+os <- us[336:419,]
+
+```
+
+# Build the Models
+
+##Industrial Prodcution
+```{r}
+## Use uncertainty index as single predictor for the variables
+
+### INDPRO-INDPRO
+regINDPROINDPRO1 <- lm(INDPRO_growth ~ lag(INDPRO_growth))
+summary(regINDPROINDPRO1)
+
+
+### INDPRO-EPU
+regINDPROEPU1 <- lm(INDPRO_growth ~ lag(uncertainty_growth))
+summary(regINDPROEPU1)
+
+regINDPROEPU12 <- lm(INDPRO_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n = 2))
+summary(regINDPROEPU12)
+
+
+regINDPROEPU123 <- lm(INDPRO_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n = 2) + lag(uncertainty_growth, n =3) )
+summary(regINDPROEPU123)
+
+### INDPROCPI
+regINDPROCPI1 <- lm(INDPRO_growth ~ lag(cpi_diff))
+summary(regINDPROCPI)
+
+
+regINDPROINDPROUNRATECPIEPU <- lm(INDPRO_growth ~ lag(INDPRO_growth) + lag(cpi_diff)  + lag(UNRATE) +lag(uncertainty_growth) +  lag(uncertainty_growth, n = 2))
+summary(regINDPROINDPROUNRATECPIEPU)
+
+
+regINDPROINDPROCPIEPU <- lm(INDPRO_growth ~ lag(INDPRO_growth) + lag(cpi_diff) + lag(UNRATE) +lag(uncertainty_growth) +  lag(uncertainty_growth, n = 2))
+summary(regINDPROINDPROCPIEPU)
+
+regINDPROINDPRO2UNEMP2CPI2EPU2 <- lm(INDPRO_growth ~ lag(INDPRO_growth) +lag(INDPRO_growth, n=2)  + lag(cpi_diff) + lag(cpi_diff, n=2) + lag(UNRATE) + lag(UNRATE, n=2) +lag(uncertainty_growth) +  lag(uncertainty_growth, n = 2))
+summary(regINDPROINDPRO2UNEMP2CPI2EPU2)
+coeftest(regINDPROINDPRO2UNEMP2CPI2EPU2)
+
+```

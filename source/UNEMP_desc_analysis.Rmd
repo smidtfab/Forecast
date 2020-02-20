@@ -9,22 +9,114 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+```{r}
+rm(list=ls())
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+library(tseries)
+library(moments)
+library(dplyr)
+library(sandwich) ## used to compute NW SE's
+library(lmtest)
+library(tidyverse)
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+getCurrentFileLocation <-  function() {
+  this_file <- commandArgs() %>% 
+    tibble::enframe(name = NULL) %>%
+    tidyr::separate(col=value, into=c("key", "value"), sep="=", fill='right') %>%
+    dplyr::filter(key == "--file") %>%
+    dplyr::pull(value)
+  if (length(this_file)==0) {
+    this_file <- rstudioapi::getSourceEditorContext()$path
+  }
+  return(dirname(this_file))
+}
 
-```{r cars}
-summary(cars)
+file_dir <- getCurrentFileLocation()
+setwd(file_dir)
+
+# get utilities
+source("../lib/utilities.R")
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
+Read the data
+```{r}
+us <- read.csv("../data/uncertainty_full.csv")
+attach(us)
+datesus <- as.Date(DATE)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+Moments:
+```{r}
+stats.unemployment_growth <- as.matrix( c( mean(unemployment_growth) , sd(unemployment_growth) , skewness(unemployment_growth) , kurtosis(unemployment_growth) ) ) 
+dimnames(stats.unemployment_growth)[[1]] <- list('mean','std. dev.','skew','kurt')
+```
+
+
+Plot the data:
+```{r}
+png("../images/monthly/UNEMP/unemployment_growth.png")
+myplot(datesus[1:length(datesus)], unemployment_growth, col="tomato", main='')
+abline(h=mean(unemployment_growth) , lwd=2)
+dev.off()
+
+### QQ Norms
+png("../images/monthly/UNEMP/QQ_unemployment_growth.png")
+qqnorm(unemployment_growth, col="tomato", main='')
+qqline(unemployment_growth,lwd=2,lty=3)
+dev.off()
+
+### histograms
+png("../images/monthly/UNEMP/histograms_unemployment_growth.png")
+hist(unemployment_growth,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
+dev.off()
+
+### Kernels
+png("../images/monthly/UNEMP/kernels_unemployment_growth.png")
+plot( density(unemployment_growth) ,yaxs='i', xlab='', main='' )
+polygon( density(unemployment_growth),col="tomato" , border='darkred' )
+dev.off()
+
+#Autocorrelations:
+png(file='../images/monthly/UNEMP/ACF_unemployment_growth.png') ### all comments afterwards will split be add to the png file (until dev.off)
+acf(unemployment_growth, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25),  main='')
+dev.off()
+
+png(file='../images/monthly/UNEMP/PACF_unemployment_growth.png')
+pacf(unemployment_growth, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='' )
+dev.off()
+
+```
+
+
+Tests:
+```{r}
+#T-Test for mean zero
+t.test(unemployment_growth, mu=mean(unemployment_growth))
+ttest.unemployment_growth <- t.test(unemployment_growth, mu=mean(unemployment_growth))
+T.unemployment_growth <- as.matrix( c(ttest.unemployment_growth$statistic, ttest.unemployment_growth$p.value ) ) 
+dimnames(T.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+round(T.unemployment_growth, 3)
+
+# Test for stationarity
+adf.test(us$unemployment_growth)
+adf.unemployment_growth <- adf.test((unemployment_growth))
+ADF.unemployment_growth <- as.matrix( c(adf.unemployment_growth$statistic, adf.unemployment_growth$p.value ) ) 
+dimnames(ADF.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+round(ADF.unemployment_growth, 3)
+
+#Jarque-Bera test for normality:
+jarque.test(unemployment_growth)
+jb.unemployment_growth <- jarque.test((unemployment_growth))
+JB.unemployment_growth <- as.matrix(c(jb.unemployment_growth$statistic, jb.unemployment_growth$p.value))
+dimnames(JB.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+JB.unemployment_growth
+
+#Ljung-Box Tests autocorrelation:
+Box.test(unemployment_growth , type = c("Ljung-Box"))
+box.unemployment_growth <- Box.test(unemployment_growth , type = c("Ljung-Box"))
+BOX.unemployment_growth <- as.matrix( c(box.unemployment_growth$statistic, box.unemployment_growth$p.value ) ) 
+dimnames(BOX.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+round(BOX.unemployment_growth, 3)
+```
+
+
