@@ -47,42 +47,42 @@ datesus <- as.Date(DATE)
 
 Moments:
 ```{r}
-stats.UNRATE <- as.matrix( c( mean(UNRATE) , sd(UNRATE) , skewness(UNRATE) , kurtosis(UNRATE) ) ) 
-dimnames(stats.UNRATE)[[1]] <- list('mean','std. dev.','skew','kurt')
+stats.unemployment_growth <- as.matrix( c( mean(unemployment_growth) , sd(unemployment_growth) , skewness(unemployment_growth) , kurtosis(unemployment_growth) ) ) 
+dimnames(stats.unemployment_growth)[[1]] <- list('mean','std. dev.','skew','kurt')
 ```
 
 
 Plot the data:
 ```{r}
-png("../images/monthly/UNEMP/UNRATE.png")
-myplot(datesus[1:length(datesus)], UNRATE, col="tomato", main='')
-abline(h=mean(UNRATE) , lwd=2)
+png("../images/monthly/UNEMP/unemployment_growth.png")
+myplot(datesus[1:length(datesus)], unemployment_growth, col="tomato", main='')
+abline(h=mean(unemployment_growth) , lwd=2)
 dev.off()
 
 ### QQ Norms
-png("../images/monthly/UNEMP/QQ_UNRATE.png")
-qqnorm(UNRATE, col="tomato", main='')
-qqline(UNRATE,lwd=2,lty=3)
+png("../images/monthly/UNEMP/QQ_unemployment_growth.png")
+qqnorm(unemployment_growth, col="tomato", main='')
+qqline(unemployment_growth,lwd=2,lty=3)
 dev.off()
 
 ### histograms
-png("../images/monthly/UNEMP/histograms_UNRATE.png")
-hist(UNRATE,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
+png("../images/monthly/UNEMP/histograms_unemployment_growth.png")
+hist(unemployment_growth,50,freq=FALSE,col='tomato',border='darkred', main='', xlab='')
 dev.off()
 
 ### Kernels
-png("../images/monthly/UNEMP/kernels_UNRATE.png")
-plot( density(UNRATE) ,yaxs='i', xlab='', main='' )
-polygon( density(UNRATE),col="tomato" , border='darkred' )
+png("../images/monthly/UNEMP/kernels_unemployment_growth.png")
+plot( density(unemployment_growth) ,yaxs='i', xlab='', main='' )
+polygon( density(unemployment_growth),col="tomato" , border='darkred' )
 dev.off()
 
 #Autocorrelations:
-png(file='../images/monthly/UNEMP/ACF_UNRATE.png') ### all comments afterwards will split be add to the png file (until dev.off)
-acf(UNRATE, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25),  main='')
+png(file='../images/monthly/UNEMP/ACF_unemployment_growth.png') ### all comments afterwards will split be add to the png file (until dev.off)
+acf(unemployment_growth, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25),  main='')
 dev.off()
 
-png(file='../images/monthly/UNEMP/PACF_UNRATE.png')
-pacf(UNRATE, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='' )
+png(file='../images/monthly/UNEMP/PACF_unemployment_growth.png')
+pacf(unemployment_growth, col='darkorange2', ylim=c(-0.5,1) , lwd=5 , xlim=c(0,25), main='' )
 dev.off()
 
 ```
@@ -91,32 +91,32 @@ dev.off()
 Tests:
 ```{r}
 #T-Test for mean zero
-t.test(UNRATE, mu=mean(UNRATE))
-ttest.UNRATE <- t.test(UNRATE, mu=mean(UNRATE))
-T.UNRATE <- as.matrix( c(ttest.UNRATE$statistic, ttest.UNRATE$p.value ) ) 
-dimnames(T.UNRATE)[[1]] <- list('Statistic', 'P-Value')
-round(T.UNRATE, 3)
+t.test(unemployment_growth, mu=mean(unemployment_growth))
+ttest.unemployment_growth <- t.test(unemployment_growth, mu=mean(unemployment_growth))
+T.unemployment_growth <- as.matrix( c(ttest.unemployment_growth$statistic, ttest.unemployment_growth$p.value ) ) 
+dimnames(T.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+round(T.unemployment_growth, 3)
 
 # Test for stationarity
-adf.test(us$UNRATE)
-adf.UNRATE <- adf.test((UNRATE))
-ADF.UNRATE <- as.matrix( c(adf.UNRATE$statistic, adf.UNRATE$p.value ) ) 
-dimnames(ADF.UNRATE)[[1]] <- list('Statistic', 'P-Value')
-round(ADF.UNRATE, 3)
+adf.test(us$unemployment_growth)
+adf.unemployment_growth <- adf.test((unemployment_growth))
+ADF.unemployment_growth <- as.matrix( c(adf.unemployment_growth$statistic, adf.unemployment_growth$p.value ) ) 
+dimnames(ADF.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+round(ADF.unemployment_growth, 3)
 
 #Jarque-Bera test for normality:
-jarque.test(UNRATE)
-jb.UNRATE <- jarque.test((UNRATE))
-JB.UNRATE <- as.matrix(c(jb.UNRATE$statistic, jb.UNRATE$p.value))
-dimnames(JB.UNRATE)[[1]] <- list('Statistic', 'P-Value')
-JB.UNRATE
+jarque.test(unemployment_growth)
+jb.unemployment_growth <- jarque.test((unemployment_growth))
+JB.unemployment_growth <- as.matrix(c(jb.unemployment_growth$statistic, jb.unemployment_growth$p.value))
+dimnames(JB.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+JB.unemployment_growth
 
 #Ljung-Box Tests autocorrelation:
-Box.test(UNRATE , type = c("Ljung-Box"))
-box.UNRATE <- Box.test(UNRATE , type = c("Ljung-Box"))
-BOX.UNRATE <- as.matrix( c(box.UNRATE$statistic, box.UNRATE$p.value ) ) 
-dimnames(BOX.UNRATE)[[1]] <- list('Statistic', 'P-Value')
-round(BOX.UNRATE, 3)
+Box.test(unemployment_growth , type = c("Ljung-Box"))
+box.unemployment_growth <- Box.test(unemployment_growth , type = c("Ljung-Box"))
+BOX.unemployment_growth <- as.matrix( c(box.unemployment_growth$statistic, box.unemployment_growth$p.value ) ) 
+dimnames(BOX.unemployment_growth)[[1]] <- list('Statistic', 'P-Value')
+round(BOX.unemployment_growth, 3)
 ```
 
 

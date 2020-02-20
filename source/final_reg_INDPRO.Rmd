@@ -43,10 +43,10 @@ source("../lib/utilities.R")
 Read the data
 ```{r}
 us <- read.csv("../data/uncertainty_full.csv")
-datesus <- as.Date(DATE)
+
 
 is <- us[1:(nrow(us)*0.8), ]
-
+is$DATE <- as.Date(is$DATE)
 attach(is)
 os <- us[(nrow(is)+1):419, ]
 
@@ -58,10 +58,14 @@ os <- us[(nrow(is)+1):419, ]
 ```{r}
 ## ARMA (1,3) AS BENCHMARK MODEL (BEST MODEL WITH RESPECT TO AIC AND BIC)
 
-arma13 <- auto.arima(INDPRO_growth)
+arma13 <- auto.arima(is$INDPRO_growth)
+
+
+arma13 <- arima(is$INDPRO_growth, order=c(1,0,3))
 summary(arma13)
+
 arma13_res <- arma13$residuals
-arma13_hat <- INDPRO_growth+ arma13_res 
+arma13_hat <- is$INDPRO_growth- arma13_res 
 
 ## Information Criteria
 arma13_aic    <- (-2*arma13$loglik+2*6)/length(is)
@@ -106,9 +110,10 @@ adf.test(arma13_res)
 Industrial Production only on the 2 lags of the change in EPU:
 ```{r}
 ### INDPRO-EPU
-regINDPROEPU12 <- lm(INDPRO_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n = 2))
+regINDPROEPU12 <- lm(INDPRO_growth ~ lag(uncertainty_growth) + lag(uncertainty_growth, n = 2), data=is)
 summary(regINDPROEPU12)
 regINDPROEPU12_res <-  regINDPROEPU12$residuals
+INDPROEPU12_hat <- predict(regINDPROEPU12, data=is)
 
 ## Information Criteria
 print(rbind(c('AIC', 'BIC'), c(AIC(regINDPROEPU12), BIC(regINDPROEPU12))))
@@ -149,9 +154,10 @@ adf.test(regINDPROEPU12_res)
 
 ```{r}
 
-regINDPROINDPRO2UNEMP2CPI2EPU2 <- lm(INDPRO_growth ~ lag(INDPRO_growth) +lag(INDPRO_growth, n=2)  + lag(cpi_diff) + lag(cpi_diff, n=2) + lag(UNRATE) + lag(UNRATE, n=2) +lag(uncertainty_growth) +  lag(uncertainty_growth, n = 2))
+regINDPROINDPRO2UNEMP2CPI2EPU2 <- lm(INDPRO_growth ~ lag(INDPRO_growth) +lag(INDPRO_growth, n=2)  + lag(cpi_diff) + lag(cpi_diff, n=2) + lag(UNRATE) + lag(UNRATE, n=2) +lag(uncertainty_growth) +  lag(uncertainty_growth, n = 2), data=is)
 summary(regINDPROINDPRO2UNEMP2CPI2EPU2)
 regINDPROINDPRO2UNEMP2CPI2EPU2_res <-  regINDPROINDPRO2UNEMP2CPI2EPU2$residuals
+INDPROINDPRO2UNEMP2CPI2EPU2_hat <- predict(regINDPROINDPRO2UNEMP2CPI2EPU2, is)
 
 ## Information Criteria
 print(rbind(c('AIC', 'BIC'), c(AIC(regINDPROINDPRO2UNEMP2CPI2EPU2), BIC(regINDPROINDPRO2UNEMP2CPI2EPU2))))
@@ -197,5 +203,24 @@ coeftest(nw.regINDPROINDPRO2UNEMP2CPI2EPU2)
 
 ```{r}
 plot( is$DATE , is$INDPRO_growth , main='', ylim=c(min(is$INDPRO_growth),max(is$INDPRO_growth)) , tck= 12, ylab='',xlab='Date'  , col='darkorange') 
+```mse
+
+```{r}
+N <- nrow(is)
+plot( is$DATE[3:N] , is$INDPRO_growth[3:N] , main= '', ylim=c(min(is$INDPRO_growth),max(is$INDPRO_growth)), xlim=c(min(as.Date(is$DATE[3])), max(as.Date(is$DATE[N]))) , ylab='',xlab='', tck = 0.02 , col=2 )
+abline( h=arma13$coef['intercept'] , lwd=2 )
+grid( lwd=1 , col="darkgrey" )
+lines( is$DATE[3:N] , INDPROEPU12_hat , t='l' , lwd=2 , col=3 )
+lines( is$DATE[3:N] , INDPROINDPRO2UNEMP2CPI2EPU2_hat[3:N]  , t='l' , lwd=2 , col=4 )
+lines(is$DATE[3:N] , arma13_hat[3:N], t='l', lwd=2, col=5)
+legend('bottomleft', c('INDPRO', 'INDPRO on EPU 2-lag', 'INDPRO EXT', 'ARMA(1,3)'), text.col=2:5)
+
+```
+
+Compute mean squared errors
+```{r}
+
+
+
 ```
 
